@@ -1,4 +1,4 @@
-(ns inspectable.render
+(ns inspectable.ui.fail-inspector
   (:require [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
             [clojure.string :as str]
@@ -109,7 +109,7 @@
                                             :background (sscolor/color "#f2dede")
                                             :font {:name :monospaced :size 15}
                                             :foreground (sscolor/color "#a94442"))
-                            :center (make-tree ann-value)) )
+                            :center (make-tree (reverse ann-value))) )
         ss/pack!
         ss/show!)))
 
@@ -135,66 +135,5 @@
         ss/pack!
         ss/show!)))
 
-(comment
-;;;;;;;;;;;;;;;
-;; Repl test ;;
-;;;;;;;;;;;;;;;
 
-  (s/def :user/name (s/and string?
-                           #(= (str/capitalize %) %)))
-  (s/def :user/age pos-int?)
-  (s/def :user/numbers (s/coll-of (s/or :n (s/and int? even?)
-                                        :c string?) :kind vector?))
-  (s/def ::user (s/keys :req [:user/name
-                              :user/age
-                              :user/numbers]))
-
-  (gen/generate (s/gen ::user))
-  (def users
-    [#:user{:name "Alice"
-            ;; :age 20
-            :numbers [2]}
-     #:user{:name "John"
-            :age 33
-            :numbers [2 4 6 8 9]}
-     #:user{:name "Bob"
-            :age 52
-            :numbers [2 3]}])
-  (s/explain-data (s/coll-of ::user :kind vector?) users)
-  (pretty-explain (s/explain-data (s/coll-of ::user :kind vector?) users))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-  (s/def ::tag #{:a :b :c})
-  (s/def ::tagged-data (s/cat :tag ::tag :content (s/* (s/alt :n int? :s string?))))
-  (s/def ::all (s/coll-of ::tagged-data :kind vector?))
-
-
-  (pretty-explain (s/explain-data ::all [[:a 1 2 3 "test" 2]
-                                         [:b 1 "b" true "test" 2]
-                                         [:c "a" 2 3 "test" 2]]))
-
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  (stest/instrument)
-
-  (s/fdef users-older-than
-        :args (s/cat :users (s/coll-of ::user :kind vector?)
-                     :age :user/age
-                     :other any?
-                     :rest any?)
-        :ret ::user)
-  (pretty-explain (s/explain-data (s/coll-of ::user :kind vector?) users))
-  (defn users-older-than [users age bla & r])
-
-  (try
-    (users-older-than users 5 6 '(12 3 43 45))
-    
-    (catch Exception e
-      (pretty-explain-fn-fail (->> (.getMessage e)
-                                   (re-find #"Call to #'(.+) did not conform to spec:")
-                                   second)
-                      (ex-data e))))
-
-     
-  )
 
