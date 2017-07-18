@@ -4,17 +4,19 @@
             [inspectable.ui.fail-inspector :refer [pretty-explain-fn-fail
                                                    pretty-explain]]
             [inspectable.ui.spec-browser :as spec-browser]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [inspectable.core :as core]))
 
 
 (defn repl-caught
   ([] (repl-caught *e))
   ([ex]
-   (when (contains? (ex-data ex) :clojure.spec.alpha/failure)
-     (pretty-explain-fn-fail
+   (when (contains? (ex-data ex) :clojure.spec.alpha/value)
+     (pretty-explain
       (->> (.getMessage ex)
-           (re-find #"Call to #'(.+) did not conform to spec:")
-           second)
+           (re-find #"Call to #?'?(.+) did not conform to spec:")
+           second
+           symbol)
       (ex-data ex)))))
 
 (defmacro i [form]
@@ -25,9 +27,7 @@
         (catch Exception e#
           (repl-caught e#))))
     (catch Exception compiler-ex
-      (->> (.getCause compiler-ex)
-          ex-data
-          (pretty-explain (str "Error compiling " form))))))
+      (repl-caught (.getCause compiler-ex)))))
 
 (defn browse-spec [thing]
   (spec-browser/browse-spec thing))
@@ -36,6 +36,7 @@
 ;;;;;;;;;;;;;;;
 ;; Repl test ;;
 ;;;;;;;;;;;;;;;
+  (browse-spec "user")
 
   (s/def :user/name (s/and string?
                            #(= (str/capitalize %) %)))
@@ -47,16 +48,15 @@
 
   (def users
     [#:user{:name "Alice"
-            ;; :age 20
+            :age 20
             :numbers [2]}
      #:user{:name "John"
             :age 33
-            :numbers [2 4 6 8 9]}
+            :numbers [9]}
      #:user{:name "Bob"
             :age 52
-            :numbers [2 3]}])
-  (s/explain-data (s/coll-of ::user :kind vector?) users)
-  (pretty-explain (s/explain-data (s/coll-of ::user :kind vector?) users))
+            :numbers [2]}])
+  (pretty-explain  (s/explain-data (s/coll-of ::user :kind vector?) users))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -78,7 +78,7 @@
                      :other any?
                      :rest any?)
         :ret ::user)
-  (pretty-explain (s/explain-data (s/coll-of ::user :kind vector?) users))
+  
   (defn users-older-than [users age bla & r])
 
 
@@ -88,7 +88,17 @@
   (i (let [a 5
            4 8]
        5))
-  
+
+  (inspectable.repl/i
+   (let [ann-args (core/annotate-data value problems)
+         z 3
+         b 4
+         ann-args2 (core/annotate-data value problems)
+         3]
+     {:a 1
+      :b 2
+      :c 100}
+     ))
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   
   (clojure.main/repl :caught )
