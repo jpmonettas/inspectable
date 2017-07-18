@@ -8,6 +8,8 @@
             [seesaw.mig :as ssmig]
             [inspectable.core :as core]
             [clojure.spec.gen.alpha :as gen]
+            [inspectable.ui.spec-browser :as spec-browser]
+            [inspectable.ui.themes :refer [get-color]]
             clojure.pprint)
   (:import [javax.swing.tree TreeCellRenderer TreeModel TreePath]
            [javax.swing JTree]
@@ -42,11 +44,11 @@
     (cond
       (map-contains-pred? pred)
       (format "Missing required key <b>%s</b>" (-> pred (nth 2) (nth 2)))
-      
+
       true (format "<b>%s</b>" pred))))
 
 (defn format-problems [problems]
-  (str "<span style=\"background-color: #CCCCCC;\">fails for "
+  (str "<span style=\"background-color: " (get-color :problem-background) ";\">fails for "
        (->> problems
             (map format-problem)
             (str/join " and "))
@@ -57,21 +59,21 @@
    :hgap 20
    :align :left
    :items [(ss/label :text (format-val val)
-                     :foreground (sscolor/color "#a94442")
+                     :foreground (sscolor/color (get-color :problem-foreground))
                      :font {:name :monospaced :size 15})
            (ss/label :text (str "<html>" (format-problems val-problems) "</html>")
                      :font {:name :monospaced :size 15})]))
 
 (defn make-ok-node [val in-problem-path?]
   (ss/flow-panel
-   :background (sscolor/color "white")
+   :background (sscolor/color (get-color :tree-background))
    :align :left
    :items
    [(ss/label :text (format-val val)
               :font {:name :monospaced :size 15}
               :foreground (if in-problem-path?
-                            (sscolor/color "#a94442")
-                            (sscolor/color "#CCCCCC")))]))
+                            (sscolor/color (get-color :problem-foreground))
+                            (sscolor/color (get-color :ok-node-foreground))))]))
 
 (defn build-tree [node]
   (when node
@@ -123,45 +125,46 @@
 
 
 (defn value-as-args-tree-panel [value problems]
-  (ssmig/mig-panel
-   :background (sscolor/color "white")
-   :items (map-indexed (fn [i ann-arg]
-                         [(ssmig/mig-panel
-                           :items [[(ss/label (str "arg" i)) "wrap"]
-                                   [(make-tree ann-arg) "wrap"]])
-                          "wrap"])
-                       ;; TODO do something about this
-                       (let [ann (core/annotate-data value problems false)]
-                         (if (instance? inspectable.core.AnnWrapper ann)
-                           (:value ann)
-                           ann)))))
+  (ss/scrollable
+   (ssmig/mig-panel
+    :background (sscolor/color (get-color :tree-background))
+    :items (map-indexed (fn [i ann-arg]
+                          [(ssmig/mig-panel
+                            :items [[(ss/label (str "arg" i)) "wrap"]
+                                    [(make-tree ann-arg) "wrap"]])
+                           "wrap"])
+                        ;; TODO do something about this
+                        (let [ann (core/annotate-data value problems true)]
+                          (if (instance? inspectable.core.AnnWrapper ann)
+                            (:value ann)
+                            ann))))))
 
 (defn value-as-tree-panel [value problems]
-  (make-tree ;; TODO do something about this
-   (let [ann (core/annotate-data value problems false)]
-     (if (instance? inspectable.core.AnnWrapper ann)
-       (:value ann)
-       ann))))
+  (ss/scrollable
+   (make-tree ;; TODO do something about this
+    (core/annotate-data value problems true))))
 
 (defmethod clojure.pprint/code-dispatch inspectable.core.AnnWrapper
   [w]
   (if-let [problems (-> w :data :node-problems)]
-    (clojure.pprint/pprint-logical-block :prefix "<span style=\"color: red;\">"
-                                         :suffix (str "</span>&nbsp;" (format-problems problems))
+    (clojure.pprint/pprint-logical-block :prefix (str "<span style=\"color: " (get-color :problem-foreground) ";\">")
+                                         :suffix (str "</span>&nbsp; ;;" (format-problems problems))
                                          (clojure.pprint/write-out (:value w)))
     (clojure.pprint/write-out (:value w))))
 
+
 (defn value-as-pp-panel [value problems fail-form-sym]
-  (doto (ss/editor-pane :content-type "text/html"
-                        :editable? false
-                        :font {:name :monospaced :size 15}
-                        :text (str "<pre>"
-                                   (clojure.pprint/write (cond-> (core/annotate-data value problems false)
-                                                           fail-form-sym (conj fail-form-sym))
-                                                         :stream nil
-                                                         :dispatch clojure.pprint/code-dispatch)
-                                   "</pre>"))
-    (.putClientProperty JEditorPane/HONOR_DISPLAY_PROPERTIES true)))
+  (ss/scrollable
+   (doto (ss/editor-pane :content-type "text/html"
+                         :editable? false
+                         :font {:name :monospaced :size 15}
+                         :text (str "<pre>"
+                                    (clojure.pprint/write (cond-> (core/annotate-data value problems false)
+                                                            fail-form-sym (conj fail-form-sym))
+                                                          :stream nil
+                                                          :dispatch clojure.pprint/code-dispatch)
+                                    "</pre>"))
+     (.putClientProperty JEditorPane/HONOR_DISPLAY_PROPERTIES true))))
 
 (defn pretty-explain
   ([ex-data] (pretty-explain nil ex-data))
@@ -169,15 +172,14 @@
    (-> (ss/frame :title "Inspectable"
                  :content (ss/border-panel
                            :vgap 30
-                           :background (sscolor/color "#f2dede")
+                           :background (sscolor/color (get-color :header-background))
                            :north (ss/label :text (if fail-form-sym
                                                     (format "<html>Error calling <b>%s</b></html>" fail-form-sym)
                                                     "Spec failed") 
-                                            :background (sscolor/color "#f2dede")
+                                            :background (sscolor/color (get-color :header-background))
                                             :font {:name :monospaced :size 15}
-                                            :foreground (sscolor/color "#a94442"))
+                                            :foreground (sscolor/color (get-color :header-foreground)))
                            :center (ss/tabbed-panel :placement :top
-                                                    :overflow :scroll
                                                     :tabs (cond-> []
                                                             (not fail-form-sym) (conj {:title "Tree"
                                                                                        :content (value-as-tree-panel value problems)})

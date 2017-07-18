@@ -55,6 +55,12 @@
 (defn tabs [n]
   (apply str (repeat n "\t")))
 
+(defn format-link [form]
+  ;; TODO fix the google thing
+  (format "<a data=\"%s\" href=\"http://www.google.com\">%s</a>"
+               form
+               form ))
+
 (defn format-spec-form
   ([form] (format-spec-form form 0))
   ([form indent-level]
@@ -107,9 +113,7 @@
        (and (or (qualified-keyword? form)
                 (qualified-symbol? form))
             (contains? (s/registry) form))
-       (format "<a data=\"%s\" href=\"http://www.google.com\">%s</a>"
-               form
-               form )
+       (format-link form)
 
        true (str form)))))
 
@@ -117,6 +121,16 @@
   (if (.startsWith s ":")
     (keyword (subs s 1))
     (symbol s)))
+
+(declare show-spec-fn)
+
+(defn browser-editor-link-listener [e]
+  (when (= (.getEventType e) HyperlinkEvent$EventType/ACTIVATED)
+    (let [spec (-> (.getSourceElement e)
+                   .getAttributes
+                   (.getAttribute HTML$Tag/A)
+                   (.getAttribute HTML$Attribute/DATA))]
+      (show-spec-fn (str-to-sym-or-key spec)))))
 
 (defn browse-spec [spec]
   (let [editor (doto (ss/editor-pane :content-type "text/html"
@@ -149,14 +163,7 @@
                                                     (map #(str "<li>" (format-spec-form %) "</li>"))
                                                     str/join))
                                        (format "<pre>%s</pre>" (format-spec-form (spec-form head))))))))
-    (ss/listen editor :hyperlink
-               (fn [e]
-                 (when (= (.getEventType e) HyperlinkEvent$EventType/ACTIVATED)
-                   (let [spec (-> (.getSourceElement e)
-                                  .getAttributes
-                                  (.getAttribute HTML$Tag/A)
-                                  (.getAttribute HTML$Attribute/DATA))]
-                     (show-spec-fn (str-to-sym-or-key spec))))))
+    (ss/listen editor :hyperlink browser-editor-link-listener)
     (show-spec-fn spec)
     (-> (ss/frame :title "Spec browser"
                   :content (ss/border-panel

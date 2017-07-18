@@ -14,15 +14,13 @@
     (cond
       ;; Map entries
       (instance? clojure.lang.IMapEntry form)
-      (f (let [[k v] form]
-           ;; TODO Remove this hack as soon as 
-           ;; https://dev.clojure.org/jira/browse/CLJ-2192 is resolved
-           (if (keyword? k)
-             [k (postwalk-with-paths v f (into in-path [k]) obj-path')]
-             [(postwalk-with-paths k f (into in-path [k 0]) obj-path')
-              (postwalk-with-paths v f (into in-path [k 1]) obj-path')]))
-         in-path
-         obj-path)
+      (let [[k v] form]
+        ;; TODO Remove this hack as soon as 
+        ;; https://dev.clojure.org/jira/browse/CLJ-2192 is resolved
+        (if (keyword? k)
+          (clojure.lang.MapEntry. k (postwalk-with-paths v f (into in-path [k]) obj-path'))
+          (clojure.lang.MapEntry. (postwalk-with-paths k f (into in-path [k 0]) obj-path')
+                                  (postwalk-with-paths v f (into in-path [k 1]) obj-path'))))
 
       ;; Maps or Records
       (or (instance? clojure.lang.IRecord form)
