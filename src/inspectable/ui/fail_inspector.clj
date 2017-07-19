@@ -45,7 +45,7 @@
       (map-contains-pred? pred)
       (format "Missing required key <b>%s</b>" (-> pred (nth 2) (nth 2)))
 
-      true (format "<b>%s</b>" pred))))
+      true (format "<b>%s</b>"  (spec-browser/spec-form-to-str pred)))))
 
 (defn format-problems [problems]
   (str "<span style=\"background-color: " (get-color :problem-background) ";\">fails for "
@@ -148,7 +148,7 @@
   [w]
   (if-let [problems (-> w :data :node-problems)]
     (clojure.pprint/pprint-logical-block :prefix (str "<span style=\"color: " (get-color :problem-foreground) ";\">")
-                                         :suffix (str "</span>&nbsp; ;;" (format-problems problems))
+                                         :suffix (str "</span>&nbsp; " (format-problems problems))
                                          (clojure.pprint/write-out (:value w)))
     (clojure.pprint/write-out (:value w))))
 
@@ -181,12 +181,12 @@
                                             :foreground (sscolor/color (get-color :header-foreground)))
                            :center (ss/tabbed-panel :placement :top
                                                     :tabs (cond-> []
+                                                            true                (conj {:title "Pretty print"
+                                                                                       :content (value-as-pp-panel value problems fail-form-sym)})
                                                             (not fail-form-sym) (conj {:title "Tree"
                                                                                        :content (value-as-tree-panel value problems)})
                                                             fail-form-sym       (conj {:title "Args trees"
-                                                                                       :content (value-as-args-tree-panel value problems)})
-                                                            true                (conj {:title "Pretty print"
-                                                                                       :content (value-as-pp-panel value problems fail-form-sym)})))))
+                                                                                       :content (value-as-args-tree-panel value problems)})))))
        ss/pack!
        ss/show!)))
 

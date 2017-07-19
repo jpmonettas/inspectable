@@ -11,13 +11,16 @@
 (defn repl-caught
   ([] (repl-caught *e))
   ([ex]
-   (when (contains? (ex-data ex) :clojure.spec.alpha/value)
+   (if-let [spec-ex (cond
+                      (contains? (ex-data ex) :clojure.spec.alpha/value) ex
+                      (contains? (ex-data (.getCause ex)) :clojure.spec.alpha/value) (.getCause ex))]
      (pretty-explain
-      (->> (.getMessage ex)
+      (->> (.getMessage spec-ex)
            (re-find #"Call to #?'?(.+) did not conform to spec:")
            second
            symbol)
-      (ex-data ex)))))
+      (ex-data spec-ex))
+     (clojure.main/repl-caught ex))))
 
 (defmacro i [form]
   (try
@@ -26,8 +29,8 @@
         ~form
         (catch Exception e#
           (repl-caught e#))))
-    (catch Exception compiler-ex
-      (repl-caught (.getCause compiler-ex)))))
+    (catch Exception ex
+      (repl-caught ex))))
 
 (defn browse-spec [thing]
   (spec-browser/browse-spec thing))
@@ -36,7 +39,8 @@
 ;;;;;;;;;;;;;;;
 ;; Repl test ;;
 ;;;;;;;;;;;;;;;
-  (browse-spec "user")
+  (browse-spec "kata.i")
+  (browse-spec :kata.ios/controller)
 
   (s/def :user/name (s/and string?
                            #(= (str/capitalize %) %)))
@@ -90,16 +94,20 @@
   
 
   (i (let [a 5
-           4 8]
+           b]
        5))
   (i (+ 1 (let [a 5
-                4 8]
+                b]
             5)))
-
+  (i '(ns bla
+        (:requir clojure.pprint)))
+  
+  (i '(defn f (a) (+ 1 a)))
   
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  
-  (clojure.main/repl :caught )
+
+  (require 'inspectable.repl)
+  (clojure.main/repl :caught inspectable.repl/repl-caught)
 
   (Thread/setDefaultUncaughtExceptionHandler
    (reify Thread$UncaughtExceptionHandler

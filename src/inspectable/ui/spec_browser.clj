@@ -2,7 +2,8 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.walk :as walk]
-            [seesaw.core :as ss])
+            [seesaw.core :as ss]
+            [clojure.pprint :as pp])
   (:import javax.swing.event.HyperlinkEvent$EventType
            [javax.swing.text.html HTML$Attribute HTML$Tag]
            javax.swing.JEditorPane))
@@ -61,76 +62,148 @@
                form
                form ))
 
-(defn format-spec-form
-  ([form] (format-spec-form form 0))
-  ([form indent-level]
-   (if (seq? form)
-     (let [[f & args] form]
-       (cond
-         (#{'clojure.spec.alpha/fspec
-            'clojure.spec.alpha/or
-            'clojure.spec.alpha/cat
-            'clojure.spec.alpha/alt} f)
-         (format "(%s\n%s)"
-                 (format-spec-form f (inc indent-level))
-                 (->> args
-                      (partition 2)
-                      (map (fn [[p1 p2]] (str (tabs (inc indent-level)) p1 " " (format-spec-form p2 (inc indent-level)))))
-                      (str/join "\n")))
+(defn clean-qualified-symbol [s]
+  (symbol
+   (str
+    (when (qualified-keyword? s) ":")
+    (-> (namespace s)
+        (str/replace "clojure.core" "core")
+        (str/replace "clojure.spec.alpha" "spec"))
+    "/"
+    (name s))))
 
-         (#{'clojure.spec.alpha/keys} f)
-         (format "(%s\n%s)"
-                 (format-spec-form f (inc indent-level))
-                 (->> args
-                      (partition 2)
-                      (map (fn [[p1 p2]] (str (tabs (inc indent-level)) p1
-                                              " ["
-                                              (->> p2
-                                                   (map #(format-spec-form % (inc indent-level)))
-                                                   (str/join (str "\n" (tabs (+ indent-level 2)))))
-                                              "]")))
-                      (str/join "\n")))
+(defn spec-form-to-str [form]
+  (walk/postwalk
+   (fn [v]
+     (if (or (qualified-keyword? v)
+             (qualified-symbol? v))
+       (clean-qualified-symbol v)
+       v))
+   form))
 
-         (#{'clojure.spec.alpha/and} f)
-         (format "(%s\n%s)"
-                 (format-spec-form f (inc indent-level))
-                 (->> args
-                      (map #(format-spec-form % (inc indent-level)))
-                      (str/join (str "\n" (tabs (inc indent-level))))))
-         
+
+(defn spec-pp-dispatch [form]
+  (if (seq? form)
+    (let [[f & args] form]
+      (cond
+        (#{'clojure.spec.alpha/fspec
+           'clojure.spec.alpha/or
+           'clojure.spec.alpha/cat
+           'clojure.spec.alpha/alt} f)
+        (pp/pprint-logical-block
+         :prefix "(" :suffix ")"
+         (pp/pprint-indent :block 1)
+         (pp/write-out f)    
+         (.write ^java.io.Writer *out* " ")
+         (pp/pprint-newline :linear)
+         (pp/print-length-loop [[[p1 p2 ] & r] (partition 2 args)]
+                               (when p1
+                                 (pp/write-out p1)
+                                 (.write ^java.io.Writer *out* " ")
+                                 (pp/write-out p2)
+                                 (when r
+                                   (.write ^java.io.Writer *out* " ")
+                                   (pp/pprint-newline :linear))
+                                 (recur r))))
+
+        (#{'clojure.spec.alpha/and
+           'clojure.spec.alpha/merge} f)
+        (pp/pprint-logical-block
+         :prefix "(" :suffix ")"
+         (pp/pprint-indent :block 1)
+         (pp/write-out f)    
+         (.write ^java.io.Writer *out* " ")
+         (pp/pprint-newline :linear)
+         (pp/print-length-loop [[p & r] args]
+                               (when p
+                                 (pp/write-out p)
+                                 (when r
+                                   (.write ^java.io.Writer *out* " ")
+                                   (pp/pprint-newline :linear))
+                                 (recur r))))
+
+        (#{'clojure.spec.alpha/keys} f)
+        (pp/pprint-logical-block
+         :prefix "(" :suffix ")"
+         (pp/pprint-indent :block 1)
+         (pp/write-out f)    
+         (.write ^java.io.Writer *out* " ")
+         (pp/pprint-newline :linear)
+         (pp/print-length-loop [[[kt ks] & r] (partition 2 args)]
+                               (when kt
+                                 (pp/write-out kt)
+                                 (.write ^java.io.Writer *out* " ")
+                                 (pp/pprint-logical-block
+                                  :prefix "[" :suffix "]"
+                                  (pp/print-length-loop [[k & rk] ks]
+                                                        (when k
+                                                          (pp/write-out k)
+                                                          (when rk
+                                                            (.write ^java.io.Writer *out* " ")
+                                                            (pp/pprint-newline :linear))
+                                                          (recur rk))))
+                                 (when r
+                                   (pp/pprint-newline :mandatory))
+                                 (recur r))))
+
          (#{'clojure.spec.alpha/?
             'clojure.spec.alpha/+
             'clojure.spec.alpha/*
             'clojure.spec.alpha/nilable} f)
-         (format "(%s %s)"
-                 (format-spec-form f (inc indent-level))
-                 (format-spec-form (first args) (inc indent-level)))
-          
-         true (str form)))
-     
-     ;;else
-     (cond
-       (and (or (qualified-keyword? form)
-                (qualified-symbol? form))
-            (contains? (s/registry) form))
-       (format-link form)
+         (pp/pprint-logical-block
+         :prefix "(" :suffix ")"
+         (pp/pprint-indent :block 1)
+         (pp/write-out f)    
+         (.write ^java.io.Writer *out* " ")
+         (pp/write-out (first args)))
+         
+         (#{'clojure.spec.alpha/multi-spec} f)
+         (let [[mm retag & multi-specs] args]
+          (pp/pprint-logical-block
+           :prefix "(" :suffix ")"
+           (pp/pprint-indent :block 1)
+           (pp/write-out f)    
+           (.write ^java.io.Writer *out* " ")
+           (pp/pprint-newline :linear)
+           (pp/write-out mm)
+           (.write ^java.io.Writer *out* " ")
+           (pp/pprint-newline :linear)
+           (pp/write-out retag)
+           (pp/pprint-newline :mandatory)
+           (pp/print-length-loop [[[k s] & r] multi-specs]
+                                 (when k
+                                   (pp/write-out k)
+                                   (.write ^java.io.Writer *out* " ")
+                                   (pp/write-out s)
+                                   (when r
+                                     (pp/pprint-newline :mandatory))
+                                   (recur r)))))
+         
+        true (pr form)))
+    
+    ;;else
+    (cond
+      (and (or (qualified-keyword? form)
+               (qualified-symbol? form))
+           (contains? (s/registry) form))
+      (.write ^java.io.Writer *out* (format-link form))
 
-       true (str form)))))
+      (and (or (qualified-keyword? form)
+               (qualified-symbol? form)))
+      (pr (clean-qualified-symbol form))
+      
+      true (pr form))))
+
+(defn format-spec-form [form]
+  (clojure.pprint/write form
+                        :stream nil
+                        :dispatch spec-pp-dispatch))
 
 (defn str-to-sym-or-key [s]
   (if (.startsWith s ":")
     (keyword (subs s 1))
     (symbol s)))
 
-(declare show-spec-fn)
-
-(defn browser-editor-link-listener [e]
-  (when (= (.getEventType e) HyperlinkEvent$EventType/ACTIVATED)
-    (let [spec (-> (.getSourceElement e)
-                   .getAttributes
-                   (.getAttribute HTML$Tag/A)
-                   (.getAttribute HTML$Attribute/DATA))]
-      (show-spec-fn (str-to-sym-or-key spec)))))
 
 (defn browse-spec [spec]
   (let [editor (doto (ss/editor-pane :content-type "text/html"
@@ -163,7 +236,13 @@
                                                     (map #(str "<li>" (format-spec-form %) "</li>"))
                                                     str/join))
                                        (format "<pre>%s</pre>" (format-spec-form (spec-form head))))))))
-    (ss/listen editor :hyperlink browser-editor-link-listener)
+    (ss/listen editor :hyperlink (fn [e]
+                                   (when (= (.getEventType e) HyperlinkEvent$EventType/ACTIVATED)
+                                     (let [spec (-> (.getSourceElement e)
+                                                    .getAttributes
+                                                    (.getAttribute HTML$Tag/A)
+                                                    (.getAttribute HTML$Attribute/DATA))]
+                                       (show-spec-fn (str-to-sym-or-key spec))))))
     (show-spec-fn spec)
     (-> (ss/frame :title "Spec browser"
                   :content (ss/border-panel
