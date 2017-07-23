@@ -1,4 +1,4 @@
-(defproject inspectable "0.1.0-SNAPSHOT"
+(defproject inspectable "0.1.0"
   :description "Tools for clojure.spec"
   :url "https://github.com/jpmonettas/inspectable"
   :license {:name "Eclipse Public License"
