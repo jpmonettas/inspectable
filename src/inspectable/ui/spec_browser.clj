@@ -59,9 +59,9 @@
 
 (defn build-link [form]
   [:span
-     [:pass (format "<a data=\"%s\" href=\"http://\">" form)]
+     (format "<a data=\"%s\" href=\"http://\">" form)
      (str form)
-     [:pass "</a>"]])
+     "</a>"])
 
 (defn visit-keyword-fn [printer form]
   (if (and (qualified-keyword? form)
@@ -83,13 +83,14 @@
 (defn visit-multispec [printer [f & args :as form]]
   (let [[mm retag & multi-specs] args]
     [:group "("
-     [:align (visit printer f) :line mm :line retag [:break]  
+           [:align (visit printer f) :line (visit printer mm) :line (visit printer retag) [:break]  
       (when (seq multi-specs)
         (->> multi-specs
              (map (fn [[k v]]
                     [:span (visit printer k) " " (visit printer v)]))
              (interpose :line)))
       ")"]]))
+
 
 (defn format-spec-form [form]
   (with-out-str (pr-spec/pprint form
@@ -107,52 +108,54 @@
     (symbol s)))
 
 
-(defn browse-spec [spec]
-  (let [editor (doto (ss/editor-pane :content-type "text/html"
-                                :editable? false
-                                :font {:name :monospaced :size 15})
-                 (.putClientProperty JEditorPane/HONOR_DISPLAY_PROPERTIES true))
-        nav-panel (ss/horizontal-panel)
-        nav-stack (atom (list))
-        nav-click-fn (fn [spec _]
-                       (swap! nav-stack
-                              #(drop-while (partial not= spec) %)))
-        show-spec-fn (fn [spec-name]
-                       (swap! nav-stack conj spec-name))]
+(defn browse-spec
+  ([] (browse-spec ".*"))
+  ([spec]
+   (let [editor (doto (ss/editor-pane :content-type "text/html"
+                                      :editable? false
+                                      :font {:name :monospaced :size 15})
+                  (.putClientProperty JEditorPane/HONOR_DISPLAY_PROPERTIES true))
+         nav-panel (ss/horizontal-panel)
+         nav-stack (atom (list))
+         nav-click-fn (fn [spec _]
+                        (swap! nav-stack
+                               #(drop-while (partial not= spec) %)))
+         show-spec-fn (fn [spec-name]
+                        (swap! nav-stack conj spec-name))]
 
-    (add-watch nav-stack :watcher
-               (fn [_ _ _ [head & _ :as new-stack]]
-                 (ss/config! nav-panel
-                             :items (->> new-stack
-                                         (map #(ss/button :text (if (string? %)
-                                                                  (str "All " %)
-                                                                  (str %))
-                                                          :listen [:action (partial nav-click-fn %)]))
-                                         (cons (ss/make-widget [:fill-v 55]))
-                                         reverse))
-                 (ss/config! editor :text
-                             (format "<html><body>%s</body></html>"
-                                     (if (string? head)
-                                       (format "<ul style=\"list-style-type: none\">%s</ul>"
-                                               (->> (spec-list head)
-                                                    (map #(str "<li>" (format-spec-form %) "</li>"))
-                                                    str/join))
-                                       (format "<pre>%s</pre>" (format-spec-form (spec-form head))))))))
-    (ss/listen editor :hyperlink (fn [e]
-                                   (when (= (.getEventType e) HyperlinkEvent$EventType/ACTIVATED)
-                                     (let [spec (-> (.getSourceElement e)
-                                                    .getAttributes
-                                                    (.getAttribute HTML$Tag/A)
-                                                    (.getAttribute HTML$Attribute/DATA))]
-                                       (show-spec-fn (str-to-sym-or-key spec))))))
-    (show-spec-fn spec)
-    (-> (ss/frame :title "Inspectable browser"
-                  :content (ss/border-panel
-                            :north (ss/scrollable nav-panel)
-                            :center (ss/scrollable editor))
-                  :width 800
-                  :height 850) 
-                  ss/show!)))
+     (add-watch nav-stack :watcher
+                (fn [_ _ _ [head & _ :as new-stack]]
+                  (ss/config! nav-panel
+                              :items (->> new-stack
+                                          (map #(ss/button :text (if (string? %)
+                                                                   (str "All " %)
+                                                                   (str %))
+                                                           :listen [:action (partial nav-click-fn %)]))
+                                          (cons (ss/make-widget [:fill-v 55]))
+                                          reverse))
+                  (ss/config! editor :text
+                              (format "<html><body>%s</body></html>"
+                                      (if (string? head)
+                                        (format "<ul style=\"list-style-type: none\">%s</ul>"
+                                                (->> (spec-list head)
+                                                     (map #(str "<li>" (format-spec-form %) "</li>"))
+                                                     str/join))
+                                        (format "<pre>%s</pre>" (format-spec-form (spec-form head))))))))
+     (ss/listen editor :hyperlink (fn [e]
+                                    (when (= (.getEventType e) HyperlinkEvent$EventType/ACTIVATED)
+                                      (let [spec (-> (.getSourceElement e)
+                                                     .getAttributes
+                                                     (.getAttribute HTML$Tag/A)
+                                                     (.getAttribute HTML$Attribute/DATA))]
+                                        (show-spec-fn (str-to-sym-or-key spec))))))
+     (show-spec-fn spec)
+     (-> (ss/frame :title "Inspectable browser"
+                   :content (ss/border-panel
+                             :north (ss/scrollable nav-panel)
+                             :center (ss/scrollable editor))
+                   :width 800
+                   :height 850) 
+         ss/show!))))
 
 
 

@@ -152,6 +152,8 @@
   ([ex-data] (pretty-explain nil ex-data))
   ([fail-form-sym #:clojure.spec.alpha{:keys [problems value]}]
    (-> (ss/frame :title "Inspectable"
+                 :width 800
+                 :height 850
                  :content (ss/border-panel
                            :vgap 30
                            :background (sscolor/color (get-color :header-background))
@@ -169,6 +171,6 @@
                                                                                        :content (value-as-tree-panel value problems)})
                                                             fail-form-sym       (conj {:title "Args trees"
                                                                                        :content (value-as-args-tree-panel value problems)})))))
-       ss/pack!
+       
        ss/show!)))
 

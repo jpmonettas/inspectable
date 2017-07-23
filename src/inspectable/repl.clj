@@ -7,11 +7,6 @@
             [inspectable.core :as core]
             [clojure.walk :as walk]))
 
-(defn pretty-explain
-  ([ex-data] (pretty-explain nil ex-data))
-  ([fail-form-sym ex-data]
-   (fail-inspector/pretty-explain fail-form-sym ex-data)))
-
 (defn- fn-symbol-from-ex-message [ex]
   (let [sym-str (->> (.getMessage ex)
                      (re-find #"Call to #?'?(.+) did not conform to spec:")
@@ -27,28 +22,42 @@
                                [(fn-symbol-from-ex-message ex) ex]
                                (contains? (ex-data (.getCause ex)) :clojure.spec.alpha/value)
                                [(fn-symbol-from-ex-message ex) (.getCause ex)])]
-     (pretty-explain fn-sym (ex-data spec-ex))
+     (fail-inspector/pretty-explain fn-sym (ex-data spec-ex))
      (clojure.main/repl-caught ex))))
 
-(defmacro i [form]
+(defn ex-data? [thing]
+  (and (map? thing)
+       (contains? thing :clojure.spec.alpha/value)))
+
+(defmacro why
+  "Tries to run the form and detect clojure.spec fails.
+  If form returns ex-data or throws and expression containing it as returned by (clojure.spec/ex-data ...)
+  opens a graphical interface trying to explain what went wrong."
+  [form]
   (try
-    (let [expanded-form (walk/macroexpand-all form)]
-     `(try
-        ~form
+    (let [expanded-form (macroexpand form)]
+      `(try
+         (let [result# ~form]
+           (if (ex-data? result#)
+             (fail-inspector/pretty-explain nil result#)
+             result#))
         (catch Exception e#
           (repl-caught e#))))
     (catch Exception ex
       (repl-caught ex))))
 
-(defn browse-spec [thing]
-  (spec-browser/browse-spec thing))
+(defn browse-spec
+  "Just a wrapper for inspectable.ui.spec-browser, refer to its doc."
+  [& args] (apply spec-browser/browse-spec args))
 
 (comment
 ;;;;;;;;;;;;;;;
 ;; Repl test ;;
 ;;;;;;;;;;;;;;;
-  (browse-spec "")
-  (browse-spec :kata.ios/controller)
+  (browse-spec)
+  (browse-spec "clojure.core/l")
+  (browse-spec 'clojure.core/let)
+  
 
   (s/def :user/name (s/and string?
                            #(= (str/capitalize %) %)))
@@ -68,10 +77,11 @@
      #:user{:name "Bob"
             :age 52
             :numbers [2]}])
-  (pretty-explain (s/explain-data ::user #:user{:name "Alice"
-                                                ;; :age 20
-                                                :numbers [2]}))
-  (pretty-explain  (s/explain-data (s/coll-of ::user :kind vector?) users))
+  (why (s/explain-data ::user #:user{:name "Alice"
+                                     ;; :age 20
+                                     :numbers [2]}))
+  
+  (why (s/explain-data (s/coll-of ::user :kind vector?) users))
 
   (stest/instrument)
 
@@ -85,7 +95,7 @@
   (defn users-older-than [users age bla & r])
 
 
-  (i (users-older-than users 5 6 '(12 3 43 45)))
+  (why (users-older-than users 5 6 '(12 3 43 45)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -94,7 +104,7 @@
   (s/def ::all (s/coll-of ::tagged-data :kind vector?))
 
 
-  (pretty-explain (s/explain-data ::all [[:a 1 2 3 "test" 2]
+  (why (s/explain-data ::all [[:a 1 2 3 "test" 2]
                                          [:b 1 "b" true "test" 2]
                                          [:c "a" 2 3 "test" 2]
                                          [:c "a" 2 3 "test" 2]
@@ -102,28 +112,18 @@
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   
-  ;; Make this work!!!
-  (i (let [a 5
+  (why (let [a 5
            4]
        5))
-  (i (+ 1 (let [a 5
-                b]
-            5)))
-
-  (i '(ns bla
-        (:requir clojure.pprint)))
   
-  (i '(defn f (a) (+ 1 a)))
+  (why (ns bla
+         (:requir clojure.pprint)))
+  
+  (why (defn f (a) (+ 1 a)))
   
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-  (require 'inspectable.repl)
   (clojure.main/repl :caught inspectable.repl/repl-caught)
 
-  (Thread/setDefaultUncaughtExceptionHandler
-   (reify Thread$UncaughtExceptionHandler
-     (uncaughtException [_ thread ex]
-       (if (contains? (ex-data ex) :clojure.spec.alpha)
-        (log/error ex "Uncaught exception on" (.getName thread))))))
   )
 
