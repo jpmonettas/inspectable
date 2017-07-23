@@ -7,6 +7,7 @@
            :ok-node-foreground "#CCCCCC"
            :header-background "#f2dede"
            :header-foreground "#a94442"
+           :browser-link-foreground "#3399ff"
            }
    :dark {
           }})

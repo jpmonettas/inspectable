@@ -6,7 +6,8 @@
             [clojure.pprint :as pp]
             [pretty-spec.core :as pr-spec]
             [inspectable.utils :as utils]
-            [fipp.visit :refer [visit]])
+            [fipp.visit :refer [visit]]
+            [inspectable.ui.themes :as themes])
   (:import javax.swing.event.HyperlinkEvent$EventType
            [javax.swing.text.html HTML$Attribute HTML$Tag]
            javax.swing.JEditorPane))
@@ -59,7 +60,9 @@
 
 (defn build-link [form]
   [:span
-     (format "<a data=\"%s\" href=\"http://\">" form)
+   (format "<a data=\"%s\" href=\"http://\" style=\"color:%s;text-decoration:none;font-weight:bold;\">"
+           form
+           (themes/get-color :browser-link-foreground))
      (str form)
      "</a>"])
 
