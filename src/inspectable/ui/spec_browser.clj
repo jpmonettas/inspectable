@@ -3,7 +3,10 @@
             [clojure.string :as str]
             [clojure.walk :as walk]
             [seesaw.core :as ss]
-            [clojure.pprint :as pp])
+            [clojure.pprint :as pp]
+            [pretty-spec.core :as pr-spec]
+            [inspectable.utils :as utils]
+            [fipp.visit :refer [visit]])
   (:import javax.swing.event.HyperlinkEvent$EventType
            [javax.swing.text.html HTML$Attribute HTML$Tag]
            javax.swing.JEditorPane))
@@ -53,151 +56,50 @@
   (-> (s/form spec-name)
       add-multi-specs))
 
-(defn tabs [n]
-  (apply str (repeat n "\t")))
 
-(defn format-link [form]
-  ;; TODO fix the google thing
-  (format "<a data=\"%s\" href=\"http://www.google.com\">%s</a>"
-               form
-               form ))
+(defn build-link [form]
+  [:span
+     [:pass (format "<a data=\"%s\" href=\"http://\">" form)]
+     (str form)
+     [:pass "</a>"]])
 
-(defn clean-qualified-symbol [s]
-  (symbol
-   (str
-    (when (qualified-keyword? s) ":")
-    (-> (namespace s)
-        (str/replace "clojure.core" "core")
-        (str/replace "clojure.spec.alpha" "spec"))
-    "/"
-    (name s))))
-
-(defn spec-form-to-str [form]
-  (walk/postwalk
-   (fn [v]
-     (if (or (qualified-keyword? v)
-             (qualified-symbol? v))
-       (clean-qualified-symbol v)
-       v))
-   form))
-
-
-(defn spec-pp-dispatch [form]
-  (if (seq? form)
-    (let [[f & args] form]
-      (cond
-        (#{'clojure.spec.alpha/fspec
-           'clojure.spec.alpha/or
-           'clojure.spec.alpha/cat
-           'clojure.spec.alpha/alt} f)
-        (pp/pprint-logical-block
-         :prefix "(" :suffix ")"
-         (pp/pprint-indent :block 1)
-         (pp/write-out f)    
-         (.write ^java.io.Writer *out* " ")
-         (pp/pprint-newline :linear)
-         (pp/print-length-loop [[[p1 p2 ] & r] (partition 2 args)]
-                               (when p1
-                                 (pp/write-out p1)
-                                 (.write ^java.io.Writer *out* " ")
-                                 (pp/write-out p2)
-                                 (when r
-                                   (.write ^java.io.Writer *out* " ")
-                                   (pp/pprint-newline :linear))
-                                 (recur r))))
-
-        (#{'clojure.spec.alpha/and
-           'clojure.spec.alpha/merge} f)
-        (pp/pprint-logical-block
-         :prefix "(" :suffix ")"
-         (pp/pprint-indent :block 1)
-         (pp/write-out f)    
-         (.write ^java.io.Writer *out* " ")
-         (pp/pprint-newline :linear)
-         (pp/print-length-loop [[p & r] args]
-                               (when p
-                                 (pp/write-out p)
-                                 (when r
-                                   (.write ^java.io.Writer *out* " ")
-                                   (pp/pprint-newline :linear))
-                                 (recur r))))
-
-        (#{'clojure.spec.alpha/keys} f)
-        (pp/pprint-logical-block
-         :prefix "(" :suffix ")"
-         (pp/pprint-indent :block 1)
-         (pp/write-out f)    
-         (.write ^java.io.Writer *out* " ")
-         (pp/pprint-newline :linear)
-         (pp/print-length-loop [[[kt ks] & r] (partition 2 args)]
-                               (when kt
-                                 (pp/write-out kt)
-                                 (.write ^java.io.Writer *out* " ")
-                                 (pp/pprint-logical-block
-                                  :prefix "[" :suffix "]"
-                                  (pp/print-length-loop [[k & rk] ks]
-                                                        (when k
-                                                          (pp/write-out k)
-                                                          (when rk
-                                                            (.write ^java.io.Writer *out* " ")
-                                                            (pp/pprint-newline :linear))
-                                                          (recur rk))))
-                                 (when r
-                                   (pp/pprint-newline :mandatory))
-                                 (recur r))))
-
-         (#{'clojure.spec.alpha/?
-            'clojure.spec.alpha/+
-            'clojure.spec.alpha/*
-            'clojure.spec.alpha/nilable} f)
-         (pp/pprint-logical-block
-         :prefix "(" :suffix ")"
-         (pp/pprint-indent :block 1)
-         (pp/write-out f)    
-         (.write ^java.io.Writer *out* " ")
-         (pp/write-out (first args)))
-         
-         (#{'clojure.spec.alpha/multi-spec} f)
-         (let [[mm retag & multi-specs] args]
-          (pp/pprint-logical-block
-           :prefix "(" :suffix ")"
-           (pp/pprint-indent :block 1)
-           (pp/write-out f)    
-           (.write ^java.io.Writer *out* " ")
-           (pp/pprint-newline :linear)
-           (pp/write-out mm)
-           (.write ^java.io.Writer *out* " ")
-           (pp/pprint-newline :linear)
-           (pp/write-out retag)
-           (pp/pprint-newline :mandatory)
-           (pp/print-length-loop [[[k s] & r] multi-specs]
-                                 (when k
-                                   (pp/write-out k)
-                                   (.write ^java.io.Writer *out* " ")
-                                   (pp/write-out s)
-                                   (when r
-                                     (pp/pprint-newline :mandatory))
-                                   (recur r)))))
-         
-        true (pr form)))
-    
-    ;;else
-    (cond
-      (and (or (qualified-keyword? form)
-               (qualified-symbol? form))
+(defn visit-keyword-fn [printer form]
+  (if (and (qualified-keyword? form)
            (contains? (s/registry) form))
-      (.write ^java.io.Writer *out* (format-link form))
+    (build-link form)
+    [:text (str form)]))
 
-      (and (or (qualified-keyword? form)
-               (qualified-symbol? form)))
-      (pr (clean-qualified-symbol form))
-      
-      true (pr form))))
+(defn visit-symbol-fn [printer form]
+  (cond
+    (and (qualified-symbol? form)
+         (contains? (s/registry) form))
+    (build-link form)
+    
+    (qualified-symbol? form)
+    (str (utils/clean-qualified-symbol form))
+    
+    true [:text (str form)]))
+
+(defn visit-multispec [printer [f & args :as form]]
+  (let [[mm retag & multi-specs] args]
+    [:group "("
+     [:align (visit printer f) :line mm :line retag [:break]  
+      (when (seq multi-specs)
+        (->> multi-specs
+             (map (fn [[k v]]
+                    [:span (visit printer k) " " (visit printer v)]))
+             (interpose :line)))
+      ")"]]))
 
 (defn format-spec-form [form]
-  (clojure.pprint/write form
-                        :stream nil
-                        :dispatch spec-pp-dispatch))
+  (with-out-str (pr-spec/pprint form
+                                {}
+                                (utils/custom-printer
+                                 (merge (pr-spec/build-symbol-map {visit-multispec '[multi-spec]})
+                                        pr-spec/default-symbols
+                                        fipp.clojure/default-symbols)
+                                 {:visit-keyword-fn visit-keyword-fn
+                                  :visit-symbol-fn visit-symbol-fn}))))
 
 (defn str-to-sym-or-key [s]
   (if (.startsWith s ":")
@@ -244,11 +146,12 @@
                                                     (.getAttribute HTML$Attribute/DATA))]
                                        (show-spec-fn (str-to-sym-or-key spec))))))
     (show-spec-fn spec)
-    (-> (ss/frame :title "Spec browser"
+    (-> (ss/frame :title "Inspectable browser"
                   :content (ss/border-panel
                             :north (ss/scrollable nav-panel)
-                            :center (ss/scrollable editor)))
-                  ss/pack!
+                            :center (ss/scrollable editor))
+                  :width 800
+                  :height 850) 
                   ss/show!)))
 
 

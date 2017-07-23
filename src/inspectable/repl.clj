@@ -1,25 +1,33 @@
 (ns inspectable.repl
   (:require [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
-            [inspectable.ui.fail-inspector :refer [pretty-explain]]
+            [inspectable.ui.fail-inspector :as fail-inspector]
             [inspectable.ui.spec-browser :as spec-browser]
             [clojure.string :as str]
             [inspectable.core :as core]
             [clojure.walk :as walk]))
 
+(defn pretty-explain
+  ([ex-data] (pretty-explain nil ex-data))
+  ([fail-form-sym ex-data]
+   (fail-inspector/pretty-explain fail-form-sym ex-data)))
+
+(defn- fn-symbol-from-ex-message [ex]
+  (let [sym-str (->> (.getMessage ex)
+                     (re-find #"Call to #?'?(.+) did not conform to spec:")
+                     second)]
+    (when sym-str
+      (symbol sym-str))))
 
 (defn repl-caught
   ([] (repl-caught *e))
   ([ex]
-   (if-let [spec-ex (cond
-                      (contains? (ex-data ex) :clojure.spec.alpha/value) ex
-                      (contains? (ex-data (.getCause ex)) :clojure.spec.alpha/value) (.getCause ex))]
-     (pretty-explain
-      (->> (.getMessage spec-ex)
-           (re-find #"Call to #?'?(.+) did not conform to spec:")
-           second
-           symbol)
-      (ex-data spec-ex))
+   (if-let [[fn-sym spec-ex] (cond
+                               (contains? (ex-data ex) :clojure.spec.alpha/value)
+                               [(fn-symbol-from-ex-message ex) ex]
+                               (contains? (ex-data (.getCause ex)) :clojure.spec.alpha/value)
+                               [(fn-symbol-from-ex-message ex) (.getCause ex)])]
+     (pretty-explain fn-sym (ex-data spec-ex))
      (clojure.main/repl-caught ex))))
 
 (defmacro i [form]
@@ -39,7 +47,7 @@
 ;;;;;;;;;;;;;;;
 ;; Repl test ;;
 ;;;;;;;;;;;;;;;
-  (browse-spec "kata.i")
+  (browse-spec "")
   (browse-spec :kata.ios/controller)
 
   (s/def :user/name (s/and string?
@@ -52,7 +60,7 @@
 
   (def users
     [#:user{:name "Alice"
-            ;; :age 20
+             :age 20
             :numbers [2]}
      #:user{:name "Aohn"
             :age 33
@@ -88,17 +96,20 @@
 
   (pretty-explain (s/explain-data ::all [[:a 1 2 3 "test" 2]
                                          [:b 1 "b" true "test" 2]
+                                         [:c "a" 2 3 "test" 2]
+                                         [:c "a" 2 3 "test" 2]
                                          [:c "a" 2 3 "test" 2]]))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   
-
+  ;; Make this work!!!
   (i (let [a 5
-           b]
+           4]
        5))
   (i (+ 1 (let [a 5
                 b]
             5)))
+
   (i '(ns bla
         (:requir clojure.pprint)))
   

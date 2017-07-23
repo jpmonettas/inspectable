@@ -10,6 +10,8 @@
             [clojure.spec.gen.alpha :as gen]
             [inspectable.ui.spec-browser :as spec-browser]
             [inspectable.ui.themes :refer [get-color]]
+            [inspectable.utils :as utils]
+            [pretty-spec.core :as pr-spec]
             clojure.pprint)
   (:import [javax.swing.tree TreeCellRenderer TreeModel TreePath]
            [javax.swing JTree]
@@ -34,26 +36,6 @@
     (coll? val) (str (empty val))
     true (str val)))
 
-(defn map-contains-pred? [pred]
-  (and (seq? pred)
-       (= (first pred) 'clojure.core/fn)
-       (= (-> pred (nth 2) first) 'clojure.core/contains?)))
-
-(defn format-problem [problem]
-  (let [pred (:pred problem)]
-    (cond
-      (map-contains-pred? pred)
-      (format "Missing required key <b>%s</b>" (-> pred (nth 2) (nth 2)))
-
-      true (format "<b>%s</b>"  (spec-browser/spec-form-to-str pred)))))
-
-(defn format-problems [problems]
-  (str "<span style=\"background-color: " (get-color :problem-background) ";\">fails for "
-       (->> problems
-            (map format-problem)
-            (str/join " and "))
-       "</span>"))
-
 (defn make-problem-node [val val-problems]
   (ss/flow-panel
    :hgap 20
@@ -61,7 +43,7 @@
    :items [(ss/label :text (format-val val)
                      :foreground (sscolor/color (get-color :problem-foreground))
                      :font {:name :monospaced :size 15})
-           (ss/label :text (str "<html>" (format-problems val-problems) "</html>")
+           (ss/label :text (str "<html>" (utils/format-problems val-problems) "</html>")
                      :font {:name :monospaced :size 15})]))
 
 (defn make-ok-node [val in-problem-path?]
@@ -141,17 +123,19 @@
 
 (defn value-as-tree-panel [value problems]
   (ss/scrollable
-   (make-tree ;; TODO do something about this
+   (make-tree 
     (core/annotate-data value problems true))))
 
-(defmethod clojure.pprint/code-dispatch inspectable.core.AnnWrapper
-  [w]
-  (if-let [problems (-> w :data :node-problems)]
-    (clojure.pprint/pprint-logical-block :prefix (str "<span style=\"color: " (get-color :problem-foreground) ";\">")
-                                         :suffix (str "</span>&nbsp; " (format-problems problems))
-                                         (clojure.pprint/write-out (:value w)))
-    (clojure.pprint/write-out (:value w))))
 
+(defn pprint-structure-to-str [x]
+  (with-out-str
+    ;; we are using the spec printer but any edn printer will work
+    ;; just because it's easy to build one
+    (pr-spec/pprint x
+                    {}
+                    (utils/custom-printer
+                     {}
+                     {:visit-record-fn utils/visit-ann-wrapper}))))
 
 (defn value-as-pp-panel [value problems fail-form-sym]
   (ss/scrollable
@@ -159,10 +143,8 @@
                          :editable? false
                          :font {:name :monospaced :size 15}
                          :text (str "<pre>"
-                                    (clojure.pprint/write (cond-> (core/annotate-data value problems false)
-                                                            fail-form-sym (conj fail-form-sym))
-                                                          :stream nil
-                                                          :dispatch clojure.pprint/code-dispatch)
+                                    (pprint-structure-to-str (cond-> (core/annotate-data value problems false)
+                                                                     fail-form-sym (conj fail-form-sym)))
                                     "</pre>"))
      (.putClientProperty JEditorPane/HONOR_DISPLAY_PROPERTIES true))))
 
