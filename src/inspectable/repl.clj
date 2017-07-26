@@ -50,6 +50,12 @@
   "Just a wrapper for inspectable.ui.spec-browser, refer to its doc."
   [& args] (apply spec-browser/browse-spec args))
 
+(defn install
+  "Install repl-caught as yoru clojure.main/repl-caught fn.
+  Every spec exception will be catched so you don't need to explicitly use why."
+  []
+  (alter-var-root #'clojure.main/repl-caught (constantly repl-caught)))
+
 (comment
 ;;;;;;;;;;;;;;;
 ;; Repl test ;;
