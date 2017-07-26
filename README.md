@@ -22,6 +22,7 @@ First of all you need to require it:
 
 Currently inspectable provides two tools: `browse-spec` and `why`. See below to understand how they can help you.
 
+
 ## The spec browser (browse-spec)
 
 The spec browser lets you explore your spec registry through a graphical interface.
@@ -72,8 +73,12 @@ using the collapsible tree:
 
 <img src="/doc/images/ring-req-fail-tree.png?raw=true"/>
 
-Second, `why` can help in situations like calling an instrumented function that fails. Suppose we 
-are working with events as defined in [clojure spec guide](https://clojure.org/guides/spec#_multi_spec)
+Second, `why` can help in situations like calling an instrumented function that fails.
+
+See [Integrating inspectable with your repl](#integrating-inspectable-with-your-repl) for a way of automatically
+calling why on this situations.
+
+Suppose we are working with events as defined in [clojure spec guide](https://clojure.org/guides/spec#_multi_spec)
 and some function :
 
 ```clojure
@@ -123,25 +128,27 @@ will show you :
 
 <img src="/doc/images/let-fail.png?raw=true"/>
 
+See [Integrating inspectable with your repl](#integrating-inspectable-with-your-repl) for a way of automatically
+calling why on this situations.
+
+
+
 ## Integrating inspectable with your repl
 
-There is a function `inspectable.repl/repl-caught` you can use as your repl
-caught function, to automatically show spec fails in macro expansions and instrumented functions calls.
+You can call (inspectable.repl/install) to install inspectable on your current repl so every time spec
+throws a exceptions `why` will be automatically applied over it.
+
+```clojure
+(inspectable.repl/install)
+```
+
+There is a function `inspectable.repl/repl-caught` you can use for the same purpose if you are starting
+your own sub repl.
 
 Starting a new repl :
 
 ```clojure
 (clojure.main/repl :caught inspectable.repl/repl-caught)
-```
-
-Or using leiningen, add to your `:repl-options` :
-
-```clojure
-(defproject ...
-
-    :repl-options {:caught inspectable.repl/repl-caught}
-    
-    )
 ```
 
 ## Related work
