@@ -10,7 +10,7 @@ Make sure you are using `[org.clojure/clojure "1.9.0-alpha17"]` or newer.
 
 To include the library add the following to your `:dependencies`.
 
-    [inspectable "0.1.0"]
+    [inspectable "0.1.1"]
     
 ## Usage
 
