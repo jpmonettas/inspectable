@@ -144,6 +144,10 @@ Or using leiningen, add to your `:repl-options` :
     )
 ```
 
+## Related work
+
+If you are interested in understanding specs when they fail also checkout [expound](https://github.com/bhb/expound)!
+
 ## Roadmap
 
 - Support ClojureScript
