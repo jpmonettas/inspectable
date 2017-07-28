@@ -39,7 +39,7 @@
 
 (defmacro why
   "Tries to run the form and detect clojure.spec fails.
-  If form returns ex-data or throws and expression containing it as returned by (clojure.spec/ex-data ...)
+  If form returns ex-data or throws an exception containing it as returned by (clojure.spec/explain-data ...)
   opens a graphical interface trying to explain what went wrong."
   [form]
   (try
@@ -84,83 +84,4 @@
 
 (defn stop-cljs []
   (@server))
-
-(comment
-;;;;;;;;;;;;;;;
-;; Repl test ;;
-;;;;;;;;;;;;;;;
-  (browse-spec)
-  (browse-spec "clojure.core/l")
-  (browse-spec 'clojure.core/let)
-  
-
-  (s/def :user/name (s/and string?
-                           #(= (str/capitalize %) %)))
-  (s/def :user/age pos-int?)
-  (s/def :user/numbers (s/coll-of (s/and int? even?) :kind vector?))
-  (s/def ::user (s/keys :req [:user/name
-                              :user/age
-                              :user/numbers]))
-
-  (def users
-    [#:user{:name "Alice"
-             :age 20
-            :numbers [2]}
-     #:user{:name "Aohn"
-            :age 33
-            :numbers [9]}
-     #:user{:name "Bob"
-            :age 52
-            :numbers [2]}])
-  (why (s/explain-data ::user #:user{:name "Alice"
-                                     ;; :age 20
-                                     :numbers [2]}))
-  
-  (why (s/explain-data (s/coll-of ::user :kind vector?) users))
-
-  (stest/instrument)
-
-  (s/fdef users-older-than
-        :args (s/cat :users (s/coll-of ::user :kind vector?)
-                     :age :user/age
-                     :other any?
-                     :rest any?)
-        :ret ::user)
-  
-  (defn users-older-than [users age bla & r])
-
-
-  (why (users-older-than users 5 6 '(12 3 43 45)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-  (s/def ::tag #{:a :b :c})
-  (s/def ::tagged-data (s/cat :tag ::tag :content (s/* (s/alt :n int? :s string?))))
-  (s/def ::all (s/coll-of ::tagged-data :kind vector?))
-
-
-  (why (s/explain-data ::all [[:a 1 2 3 "test" 2]
-                                         [:b 1 "b" true "test" 2]
-                                         [:c "a" 2 3 "test" 2]
-                                         [:c "a" 2 3 "test" 2]
-                                         [:c "a" 2 3 "test" 2]]))
-
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  
-  (why (let [a 5
-           4]
-       5))
-  
-  (why (ns bla
-         (:requir clojure.pprint)))
-  
-  (why (defn f (a) (+ 1 a)))
-  
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-  ;; TODO Make this test work!!
-  
-  (fail-inspector/pretty-explain nil (s/explain-data int? "hola"))
-
-  )
 
