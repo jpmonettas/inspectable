@@ -7,7 +7,8 @@
             [fipp.visit :as fipp-visit :refer [visit visit*]]
             [fipp.engine :refer [pprint-document]]
             [pretty-spec.core :refer [pprint]]
-            [inspectable.ui.themes :as themes]))
+            [inspectable.ui.themes :as themes]
+            [inspectable.core]))
 
 (defn clean-qualified-symbol [s]
   (symbol

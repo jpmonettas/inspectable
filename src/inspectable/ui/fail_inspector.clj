@@ -150,27 +150,34 @@
 
 (defn pretty-explain
   ([ex-data] (pretty-explain nil ex-data))
-  ([fail-form-sym #:clojure.spec.alpha{:keys [problems value]}]
-   (-> (ss/frame :title "Inspectable"
-                 :width 800
-                 :height 850
-                 :content (ss/border-panel
-                           :vgap 30
-                           :background (sscolor/color (get-color :header-background))
-                           :north (ss/label :text (if fail-form-sym
-                                                    (format "<html>Error calling <b>%s</b></html>" fail-form-sym)
-                                                    "Spec failed") 
-                                            :background (sscolor/color (get-color :header-background))
-                                            :font {:name :monospaced :size 15}
-                                            :foreground (sscolor/color (get-color :header-foreground)))
-                           :center (ss/tabbed-panel :placement :top
-                                                    :tabs (cond-> []
-                                                            true                (conj {:title "Pretty print"
-                                                                                       :content (value-as-pp-panel value problems fail-form-sym)})
-                                                            (not fail-form-sym) (conj {:title "Tree"
-                                                                                       :content (value-as-tree-panel value problems)})
-                                                            fail-form-sym       (conj {:title "Args trees"
-                                                                                       :content (value-as-args-tree-panel value problems)})))))
+  ([fail-form-sym ex-data]
+   (let [[value problems] (cond
+                            (contains? ex-data :cljs.spec.alpha/value)
+                            [(:cljs.spec.alpha/value ex-data)
+                             (:cljs.spec.alpha/problems ex-data)]
+                            (contains? ex-data :clojure.spec.alpha/value)
+                            [(:clojure.spec.alpha/value ex-data)
+                             (:clojure.spec.alpha/problems ex-data)])]
+    (-> (ss/frame :title "Inspectable"
+                  :width 800
+                  :height 850
+                  :content (ss/border-panel
+                            :vgap 30
+                            :background (sscolor/color (get-color :header-background))
+                            :north (ss/label :text (if fail-form-sym
+                                                     (format "<html>Error calling <b>%s</b></html>" fail-form-sym)
+                                                     "Spec failed") 
+                                             :background (sscolor/color (get-color :header-background))
+                                             :font {:name :monospaced :size 15}
+                                             :foreground (sscolor/color (get-color :header-foreground)))
+                            :center (ss/tabbed-panel :placement :top
+                                                     :tabs (cond-> []
+                                                             true                (conj {:title "Pretty print"
+                                                                                        :content (value-as-pp-panel value problems fail-form-sym)})
+                                                             (not fail-form-sym) (conj {:title "Tree"
+                                                                                        :content (value-as-tree-panel value problems)})
+                                                             fail-form-sym       (conj {:title "Args trees"
+                                                                                        :content (value-as-args-tree-panel value problems)})))))
        
-       ss/show!)))
+        ss/show!))))
 
