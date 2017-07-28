@@ -5,7 +5,11 @@
             [inspectable.ui.spec-browser :as spec-browser]
             [clojure.string :as str]
             [inspectable.core :as core]
-            [clojure.walk :as walk]))
+            [clojure.walk :as walk]
+            
+            [org.httpkit.server :as server]
+            [ring.middleware.cors :refer [wrap-cors]]
+            [ring.middleware.format :refer [wrap-restful-format]]))
 
 (defn- fn-symbol-from-ex-message [ex]
   (let [sym-str (->> (.getMessage ex)
@@ -14,20 +18,24 @@
     (when sym-str
       (symbol sym-str))))
 
+(defn spec-ex-data? [thing]
+  (and (map? thing)
+       (or (contains? thing :clojure.spec.alpha/value)
+           (contains? thing :cljs.spec.alpha/value))))
+
 (defn repl-caught
   ([] (repl-caught *e))
   ([ex]
    (if-let [[fn-sym spec-ex] (cond
-                               (contains? (ex-data ex) :clojure.spec.alpha/value)
+                               (spec-ex-data? (ex-data ex))
                                [(fn-symbol-from-ex-message ex) ex]
-                               (contains? (ex-data (.getCause ex)) :clojure.spec.alpha/value)
+
+                               (spec-ex-data? (ex-data (.getCause ex)))
                                [(fn-symbol-from-ex-message ex) (.getCause ex)])]
      (fail-inspector/pretty-explain fn-sym (ex-data spec-ex))
      (clojure.main/repl-caught ex))))
 
-(defn ex-data? [thing]
-  (and (map? thing)
-       (contains? thing :clojure.spec.alpha/value)))
+
 
 (defmacro why
   "Tries to run the form and detect clojure.spec fails.
@@ -38,7 +46,7 @@
     (let [expanded-form (macroexpand form)]
       `(try
          (let [result# ~form]
-           (if (ex-data? result#)
+           (if (spec-ex-data? result#)
              (fail-inspector/pretty-explain nil result#)
              result#))
         (catch Exception e#
@@ -55,6 +63,27 @@
   Every spec exception will be catched so you don't need to explicitly use why."
   []
   (alter-var-root #'clojure.main/repl-caught (constantly repl-caught)))
+
+(defonce server (atom nil))
+
+(defn- server-handler [req]
+  (cond
+    (and (= :post (:request-method req))
+         (= "/pretty-explain" (:uri req)))
+    (fail-inspector/pretty-explain (-> req :params :fn-sym)
+                                   (-> req :params :ex-data)))
+  {:status 200})
+
+(defn start-cljs []
+  (reset! server 
+          (server/run-server (-> #'server-handler
+                                 (wrap-cors :access-control-allow-origin [#".*"]
+                                            :access-control-allow-methods [:post])
+                                 (wrap-restful-format))
+                             {:port 1234})))
+
+(defn stop-cljs []
+  (@server))
 
 (comment
 ;;;;;;;;;;;;;;;
@@ -129,7 +158,9 @@
   
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-  (clojure.main/repl :caught inspectable.repl/repl-caught)
+  ;; TODO Make this test work!!
+  
+  (fail-inspector/pretty-explain nil (s/explain-data int? "hola"))
 
   )
 
