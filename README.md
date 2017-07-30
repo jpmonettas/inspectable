@@ -39,7 +39,7 @@ Currently inspectable provides two tools: `browse-spec` and `why`. See below to 
 
 ## The spec browser (browse-spec)
 
-The spec browser lets you explore your spec registry through a graphical interface.
+The spec browser lets you explore your spec registry through a java swing graphical interface.
 You can invoke it with different type of arguments:
 
 ```clojure
@@ -201,3 +201,4 @@ If you are interested in understanding specs when they fail also checkout [expou
 
 - Multiple themes
 - Reference to the caller for instrumented functions fails.
+- Test and add instructions for React Native
