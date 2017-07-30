@@ -6,18 +6,31 @@ A bunch of tools to help improve your repl experience when using clojure.spec.
 
 ## Installation
 
-Make sure you are using `[org.clojure/clojure "1.9.0-alpha17"]` or newer.
+For clojure make sure you are using `[org.clojure/clojure "1.9.0-alpha17"]` or newer.
+For clojurescript make sure you are using `[org.clojure/clojurescript "1.9.854"]` or newer.
 
 To include the library add the following to your `:dependencies`.
 
-    [inspectable "0.1.1"]
+    [inspectable "0.2.0"]
     
 ## Usage
 
-First of all you need to require it:
+For clojure :
 
 ```clojure
-(require '[inspectable.repl :refer [why browse-spec]])
+user> (require '[inspectable.repl :refer [why browse-spec]])
+```
+
+For clojurescript :
+
+```clojure
+;; In the clojure repl 
+user> (user 'inspectable.repl)
+user> (start-cljs)
+
+
+;; In your clojurescript repl
+cljs.user> (require '[inspectable.cljs-repl :refer-macros [why] :refer [browse-spec]])
 ```
 
 Currently inspectable provides two tools: `browse-spec` and `why`. See below to understand how they can help you.
@@ -151,12 +164,39 @@ Starting a new repl :
 (clojure.main/repl :caught inspectable.repl/repl-caught)
 ```
 
+## Workflows integration ideas
+
+### Re-frame
+
+If you are using re-frame and you have specs for your db you can modify your speck check middleware like :
+
+```clojure
+
+(defn check-and-throw
+  "throw an exception if db doesn't match the spec"
+  [a-spec db]
+  (when-not (s/valid? a-spec db)
+    (why (s/explain-data a-spec db)))) ;; <---- use why here
+
+(def check-spec (after (partial check-and-throw :my-app.db/db)))
+
+```
+
+### Cider
+
+If you are using Cider and Clojurescript 
+
+```elisp
+(setq cider-cljs-lein-repl "(do (use 'inspectable.repl) (start-cljs))")
+```
+
+so after your `cider-jack-in-clojurescript` everything is ready.
+
 ## Related work
 
 If you are interested in understanding specs when they fail also checkout [expound](https://github.com/bhb/expound)!
 
 ## Roadmap
 
-- Support ClojureScript
 - Multiple themes
 - Reference to the caller for instrumented functions fails.

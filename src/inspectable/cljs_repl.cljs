@@ -83,17 +83,10 @@
   ([spec]
    (send-transit-msg! [:browse-spec {:spec spec}])))
 
-#_(defn repl-caught [ex env opts]
-  (if-let [[fn-sym spec-ex] (cond
-                              (spec-ex-data? (ex-data ex))
-                              [(fn-symbol-from-ex ex) ex])]
-    (pretty-explain fn-sym (ex-data spec-ex))
-    (cljs-repl/repl-caught ex env opts)))
+(defn repl-caught [ex env opts]
+  (throw (ex-info "No support for clojurescript yet." {})))
 
-
-#_(defn install
-    "Install repl-caught as yoru clojure.main/repl-caught fn.
-  Every spec exception will be catched so you don't need to explicitly use why."
-    [])
+(defn install []
+  (throw (ex-info "No support for clojurescript yet." {})))
 
 
