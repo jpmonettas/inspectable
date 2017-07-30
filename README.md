@@ -2,11 +2,12 @@
 
 In your spec table.
 
-A bunch of tools to help improve your repl experience when using clojure.spec.
+A bunch of tools to help improve your repl experience when using clojure.spec with clojure and clojurescript.
 
 ## Installation
 
 For clojure make sure you are using `[org.clojure/clojure "1.9.0-alpha17"]` or newer.
+
 For clojurescript make sure you are using `[org.clojure/clojurescript "1.9.854"]` or newer.
 
 To include the library add the following to your `:dependencies`.
@@ -168,7 +169,7 @@ Starting a new repl :
 
 ### Re-frame
 
-If you are using re-frame and you have specs for your db you can modify your speck check middleware like :
+If you are using re-frame and you have specs for your db you can modify your spec check middleware like :
 
 ```clojure
 
