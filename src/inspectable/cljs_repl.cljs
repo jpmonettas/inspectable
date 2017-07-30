@@ -25,10 +25,23 @@
    (update-fn
      (->> msg .-data (t/read json-reader)))))
 
-(defn receive-handler [[event k data]]
-  (.log js/console "GOT" event)
-  (.log js/console "GOT" k)
-  (.log js/console "GOT" data)
+(defn make-websocket! [url receive-handler]
+ (.log js/console "attempting to connect to inspectable websocket to " url)
+ (let [chan (js/WebSocket. url)]
+   (set! (.-onmessage chan) (receive-transit-msg! receive-handler))
+   (set! (.-onerror chan) (fn [e]
+                            (js/setTimeout (fn [] (make-websocket! url receive-handler)) 5000)
+                            (.log js/console "Inspectable websocket connection failed! Did you run inspectable.repl/start-cljs ?")))
+   (set! (.-onopen chan) (fn [e]
+                           (reset! ws-chan chan)
+                           (.log js/console "Websocket connection established with: " url)))))
+
+
+;;;;;;;;;;;;;;;;
+;; Repl stuff ;;
+;;;;;;;;;;;;;;;;
+
+(defn- receive-handler [[event k data]]
   (cond
     (= event :spec-list)
     (send-transit-msg! [:response k (spec-utils/spec-list data)])
@@ -36,20 +49,7 @@
     (= event :spec-form)
     (send-transit-msg! [:response k (spec-utils/spec-form data)])))
 
-(defn make-websocket! [url receive-handler]
- (.log js/console "attempting to connect websocket")
- (if-let [chan (js/WebSocket. url)]
-   (do
-     (set! (.-onmessage chan) (receive-transit-msg! receive-handler))
-     (reset! ws-chan chan)
-     (.log js/console "Websocket connection established with: " url))
-   (throw (js/Error. "Websocket connection failed!"))))
-
-(make-websocket! "ws://localhost:1234/socket" receive-handler)
-
-;;;;;;;;;;;;;;;;
-;; Repl stuff ;;
-;;;;;;;;;;;;;;;;
+(make-websocket! "ws://localhost:53427/socket" receive-handler)
 
 (defn- fn-symbol-from-ex [ex] 
   (let [sym-str (->> (.-message ex)
@@ -57,6 +57,7 @@
                      second)]
     (when sym-str
       (symbol sym-str))))
+
 
 (defn- pretty-explain
   ([ex-data] (pretty-explain nil ex-data))
@@ -74,8 +75,7 @@
 
 (defn spec-ex-data? [thing]
   (and (map? thing)
-       (or (contains? thing :clojure.spec.alpha/value)
-           (contains? thing :cljs.spec.alpha/value))))
+       (contains? thing :cljs.spec.alpha/value)))
 
 (defn browse-spec
   ""

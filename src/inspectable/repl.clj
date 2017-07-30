@@ -1,18 +1,9 @@
 (ns inspectable.repl
   (:require [clojure.spec.alpha :as s]
-            [clojure.spec.test.alpha :as stest]
+            [inspectable.server-client :as server-client]
+            [inspectable.spec-utils :as spec-utils]
             [inspectable.ui.fail-inspector :as fail-inspector]
-            [inspectable.ui.spec-browser :as spec-browser]
-            [clojure.string :as str]
-            [inspectable.core :as core]
-            [clojure.walk :as walk]
-            [cognitect.transit :as t]
-            [clojure.core.async :as async]            
-            [org.httpkit.server :as server]
-            [ring.middleware.cors :refer [wrap-cors]]
-            [inspectable.spec-utils :as spec-utils])
-  (:import [java.io ByteArrayInputStream ByteArrayOutputStream]
-           [java.util UUID]))
+            [inspectable.ui.spec-browser :as spec-browser]))
 
 (defn- fn-symbol-from-ex-message [ex]
   (let [sym-str (->> (.getMessage ex)
@@ -71,58 +62,9 @@
   []
   (alter-var-root #'clojure.main/repl-caught (constantly repl-caught)))
 
-
-
-(defonce server (atom nil))
-(defonce server-client-responses (atom {}))
-(defonce socket-ch (atom nil))
-
-(defn- server-client-request [event data]
-  (let [out (ByteArrayOutputStream. 4096)
-        writer (t/writer out :json)
-        k (str (UUID/randomUUID))
-        p (promise)
-        _ (t/write writer [event k data])
-        str-out (.toString out)]
-    (swap! server-client-responses assoc k p)
-    (server/send! @socket-ch str-out)
-    (deref p 3000 nil)))
-
-(defn- server-client-spec-list [filter-regex]
-  (server-client-request :spec-list filter-regex))
-
-(defn- server-client-spec-form [spec]
-  (server-client-request :spec-form spec))
-
-(defn- server-handler [req]
-  (if (= (:uri req) "/socket")
-    (server/with-channel req ch
-      (reset! socket-ch ch)
-      (server/on-close ch (fn [status] (println "ch closed: " status)))
-      (server/on-receive ch (fn [msg]
-                              (async/go
-                               (println msg)
-                               (let [[event & r] (t/read (t/reader (ByteArrayInputStream. (.getBytes msg)) :json))] 
-                                 (cond
-                                   (= event :pretty-explain) (let [data (first r)]
-                                                               (fail-inspector/pretty-explain (:fn-sym data)
-                                                                                              (:ex-data data)))
-                                   (= event :browse-spec) (let [data (first r)]
-                                                            (spec-browser/browse-spec (:spec data)
-                                                                                      server-client-spec-list                     
-                                                                                      server-client-spec-form))
-                                   (= event :response) (let [[k data] r]
-                                                         (deliver (get @server-client-responses k) data))))))))
-    {:status 404}))
-
-
 (defn start-cljs []
-  (reset! server 
-          (server/run-server (-> #'server-handler
-                                 (wrap-cors :access-control-allow-origin [#".*"]
-                                            :access-control-allow-methods [:post]))
-                             {:port 1234})))
+  (server-client/start-cljs))
 
 (defn stop-cljs []
-  (@server))
+  (server-client/stop-cljs))
 
