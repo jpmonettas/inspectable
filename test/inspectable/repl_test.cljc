@@ -1,7 +1,8 @@
 (ns inspectable.repl-test
   (:require #?(:clj [inspectable.repl :refer [why browse-spec]]
                :cljs [inspectable.cljs-repl
-                      :refer-macros [why]])
+                      :refer-macros [why]
+                      :refer [browse-spec]])
             #?(:clj [clojure.test :as t]
                :cljs [cljs.test :as t :include-macros true])
             [clojure.spec.alpha :as s]
@@ -12,7 +13,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Some example specs ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
-
+ 
 (s/def :user/name (s/and string?
                          #(= (str/capitalize %) %)))
 (s/def :user/age pos-int?)

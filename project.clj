@@ -8,13 +8,13 @@
                  [pretty-spec "0.1.0"]
                  [fipp "0.6.9"]
 
-                 ;; for the cljs part
-                 [org.clojure/clojurescript "1.9.671" :scope "provided"]
+                 [org.clojure/clojurescript "1.9.854" :scope "provided"]
+                 [com.cognitect/transit-cljs "0.8.239"]
+                 [org.clojure/core.async "0.3.443"]
                  [org.clojure/test.check "0.9.0"]
-                 [cljs-ajax "0.6.0"]
                  [http-kit "2.2.0"]
                  [ring-cors "0.1.11"]
-                 [ring-middleware-format "0.7.2"]]
+                 [com.cognitect/transit-clj "0.8.300"]]
   :target-path "target/%s"
 
   :cljsbuild
