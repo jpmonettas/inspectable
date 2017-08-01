@@ -12,7 +12,7 @@ For clojurescript make sure you are using `[org.clojure/clojurescript "1.9.854"]
 
 To include the library add the following to your `:dependencies`.
 
-    [inspectable "0.2.0"]
+    [inspectable "0.2.1"]
     
 ## Usage
 
@@ -59,11 +59,17 @@ to navigate back to previous visited specs:
 
 <img src="/doc/images/browser-ring-request.png?raw=true"/>
 
+As you can see, browsing a spec shows you a pretty print of the spec form together with a generated spec sample.
+
 <img src="/doc/images/browser-ring-server-port.png?raw=true"/>
 
 Inspectable spec browser also supports browsing multi-specs: 
 
 <img src="/doc/images/browser-multi.png?raw=true"/>
+
+In case a sample can't be generated the exception will be displayed intead of the example
+
+<img src="/doc/images/browser-sample-not.png?raw=true"/>
 
 ## Specs fail explain (why)
 
