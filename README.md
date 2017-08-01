@@ -26,7 +26,7 @@ For clojurescript :
 
 ```clojure
 ;; In the clojure repl 
-user> (user 'inspectable.repl)
+user> (use 'inspectable.repl)
 user> (start-cljs)
 
 

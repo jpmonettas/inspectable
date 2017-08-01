@@ -54,7 +54,8 @@
   ([spec]
    (spec-browser/browse-spec spec
                              spec-utils/spec-list
-                             spec-utils/spec-form)))
+                             spec-utils/spec-form
+                             spec-utils/spec-sample)))
 
 (defn install
   "Install repl-caught as yoru clojure.main/repl-caught fn.

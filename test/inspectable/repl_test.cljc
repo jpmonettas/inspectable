@@ -65,6 +65,7 @@
                                           [:c "a" 2 3 "test" 2]])))
 (defn test-browse []
   (browse-spec)
+  (browse-spec ::user)
   (browse-spec "clojure.core/l")
   (browse-spec 'clojure.core/let))
 

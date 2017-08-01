@@ -1,5 +1,6 @@
 (ns inspectable.spec-utils
   (:require [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as sgen]
             [clojure.string :as str]
             [clojure.walk :as walk]))
 
@@ -55,3 +56,10 @@
      :cljs (try
              (s/form spec-name)
              (catch js/Error e nil))))
+
+(defn spec-sample
+  "Return a sample from a spec"
+  [spec-name]
+  (-> (s/get-spec spec-name)
+      (s/gen)
+      (sgen/generate)))

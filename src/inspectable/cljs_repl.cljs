@@ -47,7 +47,10 @@
     (send-transit-msg! [:response k (spec-utils/spec-list data)])
 
     (= event :spec-form)
-    (send-transit-msg! [:response k (spec-utils/spec-form data)])))
+    (send-transit-msg! [:response k (spec-utils/spec-form data)])
+
+    (= event :spec-sample)
+    (send-transit-msg! [:response k (spec-utils/spec-sample data)])))
 
 (make-websocket! "ws://localhost:53427/socket" receive-handler)
 

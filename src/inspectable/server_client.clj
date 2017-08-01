@@ -26,13 +26,16 @@
         p (promise)]
     (swap! server-client-responses assoc k p)
     (server/send! @socket-ch (to-transit-str [event k data]))
-    (deref p 3000 nil)))
+    (deref p 10000 nil)))
 
 (defn- server-client-spec-list [filter-regex]
   (server-client-request :spec-list filter-regex))
 
 (defn- server-client-spec-form [spec]
   (server-client-request :spec-form spec))
+
+(defn- server-client-spec-sample [spec]
+  (server-client-request :spec-sample spec))
 
 (defn- server-handler [req]
   (if (= (:uri req) "/socket")
@@ -49,7 +52,8 @@
                                    (= event :browse-spec) (let [data (first r)]
                                                             (spec-browser/browse-spec (:spec data)
                                                                                       server-client-spec-list                     
-                                                                                      server-client-spec-form))
+                                                                                      server-client-spec-form
+                                                                                      server-client-spec-sample))
                                    (= event :response) (let [[k data] r]
                                                          (deliver (get @server-client-responses k) data))))))))
     {:status 404}))
