@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+## [0.2.1] - 2017-07-30
+### Added
+- Spec browser shows current spec example
+
 ## [0.2.0] - 2017-07-30
 ### Added
 - clojurescript support 
