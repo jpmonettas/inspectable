@@ -5,7 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.9.0-alpha17" :scope "provided"]
                  [seesaw "1.4.5"]
-                 [pretty-spec "0.1.0"]
+                 [pretty-spec "0.1.2"]
                  [fipp "0.6.9"]
 
                  [org.clojure/clojurescript "1.9.854" :scope "provided"]
