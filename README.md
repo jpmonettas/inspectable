@@ -12,7 +12,7 @@ For clojurescript make sure you are using `[org.clojure/clojurescript "1.9.854"]
 
 To include the library add the following to your `:dependencies`.
 
-    [inspectable "0.2.1"]
+    [inspectable "0.2.2"]
     
 ## Usage
 
